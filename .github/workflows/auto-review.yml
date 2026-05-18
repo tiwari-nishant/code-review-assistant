@@ -32,12 +32,51 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install Bob Shell
+        run: |
+          echo "Installing Bob Shell..."
+          
+          # Install Bob Shell following IBM documentation
+          # https://internal.bob.ibm.com/docs/shell/getting-started/install-and-setup
+          
+          # Download and install Bob Shell
+          curl -fsSL https://internal.bob.ibm.com/install.sh | bash
+          
+          # Add Bob to PATH
+          export PATH="$HOME/.bob/bin:$PATH"
+          
+          # Verify installation
+          if command -v bob &> /dev/null; then
+            echo "✅ Bob Shell installed successfully"
+            bob --version
+          else
+            echo "⚠️  Bob Shell installation failed"
+            echo "Will use pattern-based review as fallback"
+          fi
+
+      - name: Configure Bob Shell
+        env:
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+        run: |
+          # Configure Bob Shell if API key is available
+          if [ -n "$BOB_API_KEY" ]; then
+            echo "Configuring Bob Shell..."
+            export PATH="$HOME/.bob/bin:$PATH"
+            bob config set api-key "$BOB_API_KEY"
+          else
+            echo "⚠️  BOB_API_KEY not set in secrets"
+            echo "Bob Shell may have limited functionality"
+          fi
+
       - name: Run automated code review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
         run: |
+          # Add Bob to PATH
+          export PATH="$HOME/.bob/bin:$PATH"
+          
           # Run the Bob CLI reviewer
           # This will:
           # 1. Fetch PR data
