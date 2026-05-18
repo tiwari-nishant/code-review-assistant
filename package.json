@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "review": "node src/bob-review-pr.js",
+    "review": "node src/bob-cli-reviewer.js",
+    "review:manual": "node src/bob-review-pr.js",
     "review:openai": "node src/review-pr.js",
     "test": "node test-setup.js",
     "test:setup": "node test-setup.js"
