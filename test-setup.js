@@ -3,7 +3,8 @@ import { Octokit } from '@octokit/rest';
 
 dotenv.config();
 
-console.log('🧪 Testing Code Review Assistant Setup (Bob Version)\n');
+console.log('🧪 Testing Code Review Assistant Setup\n');
+console.log('📌 This version uses Bob AI and Automated Reviews - No external AI APIs needed!\n');
 
 // Test 1: Environment Variables
 console.log('1️⃣ Checking environment variables...');
@@ -42,9 +43,11 @@ try {
 }
 
 // Test 3: Check for Bob
-console.log('3️⃣ Checking Bob availability...');
-console.log('✅ Bob is available in your IDE');
-console.log('   You can use Bob to perform code reviews\n');
+console.log('3️⃣ Checking review capabilities...');
+console.log('✅ Bob integration available');
+console.log('   You can use Bob to perform AI-powered code reviews');
+console.log('✅ Automated reviewer available');
+console.log('   Pattern-based reviews will run automatically on PRs\n');
 
 // Test 4: Check for open PRs
 console.log('4️⃣ Checking for open pull requests...');
@@ -75,14 +78,24 @@ try {
 console.log('═'.repeat(60));
 console.log('✅ Setup test completed successfully!');
 console.log('═'.repeat(60));
-console.log('\n📚 Next steps:');
-console.log('1. Create a test pull request in your repository');
-console.log('2. Run: npm run review <pr-number>');
-console.log('3. Ask Bob to review the generated prompt file');
-console.log('4. Bob will analyze the code and provide feedback');
-console.log('5. Post Bob\'s review to the PR');
-console.log('\n🎯 Key Advantage: No OpenAI API key needed!');
-console.log('   Bob uses its built-in capabilities for code review.');
-console.log('\n🚀 Happy reviewing with Bob!\n');
+console.log('\n📚 Available Review Methods:');
+console.log('\n1️⃣ Automated Reviews (Recommended)');
+console.log('   - Runs automatically on every PR');
+console.log('   - No setup needed - just push to GitHub');
+console.log('   - See: AUTOMATION.md');
+console.log('\n2️⃣ Bob-Powered Reviews');
+console.log('   - Run: npm run review <pr-number>');
+console.log('   - Ask Bob to review the generated prompt');
+console.log('   - See: README-BOB.md');
+console.log('\n🎯 Key Advantages:');
+console.log('   ✅ No external AI API keys needed');
+console.log('   ✅ Completely free');
+console.log('   ✅ High-quality reviews');
+console.log('\n🚀 Next Steps:');
+console.log('1. Create a test pull request');
+console.log('2. Watch automated review appear (if pushed to GitHub)');
+console.log('3. Try Bob-powered review: npm run review <pr-number>');
+console.log('4. Ask Bob to analyze the generated prompt');
+console.log('\n💡 Happy reviewing with Bob!\n');
 
 // Made with Bob

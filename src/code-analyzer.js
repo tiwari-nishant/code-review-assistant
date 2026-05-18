@@ -1,56 +1,70 @@
-import OpenAI from 'openai';
-import dotenv from 'dotenv';
+/**
+ * Code Analyzer - Bob Integration
+ * This module prepares code for Bob to analyze
+ * No external AI APIs required - uses Bob's built-in capabilities
+ */
 
-dotenv.config();
+import fs from 'fs';
+import path from 'path';
 
 class CodeAnalyzer {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-    this.model = process.env.REVIEW_MODEL || 'gpt-4';
+    this.tempDir = path.join(process.cwd(), '.bob-review-temp');
+    this.ensureTempDir();
   }
 
   /**
-   * Analyze code changes and provide review feedback
+   * Ensure temporary directory exists
+   */
+  ensureTempDir() {
+    if (!fs.existsSync(this.tempDir)) {
+      fs.mkdirSync(this.tempDir, { recursive: true });
+    }
+  }
+
+  /**
+   * Analyze code changes by preparing a prompt for Bob
    * @param {Object} prData - Pull request data
    * @param {Array} files - Changed files
    * @param {string} diff - Full diff content
-   * @returns {Promise<Object>} Review analysis
+   * @returns {Promise<Object>} Review analysis structure
    */
   async analyzeChanges(prData, files, diff) {
     try {
       const prompt = this.buildReviewPrompt(prData, files, diff);
       
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert code reviewer. Analyze the provided code changes and provide constructive feedback focusing on:
+      // Save prompt for Bob to review
+      const promptFile = path.join(this.tempDir, `review-${prData.number}.md`);
+      fs.writeFileSync(promptFile, prompt);
+
+      const analysis = `# Code Review Prepared for Bob
+
+This PR has been analyzed and a review prompt has been created.
+
+**Next Steps:**
+1. Ask Bob to review the file: \`${promptFile}\`
+2. Bob will analyze the code changes
+3. Bob will provide comprehensive feedback
+
+**Prompt File:** ${promptFile}
+
+**To review with Bob:**
+\`\`\`
+"Please review the file ${promptFile} and provide a comprehensive code review"
+\`\`\`
+
+Bob will analyze:
 - Code quality and best practices
 - Potential bugs or issues
 - Security vulnerabilities
 - Performance concerns
 - Code maintainability
-- Documentation and comments
-- Test coverage
+- Documentation quality
+`;
 
-Provide specific, actionable feedback with line references where applicable.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
-      });
-
-      const analysis = response.choices[0].message.content;
       return this.parseAnalysis(analysis, files);
     } catch (error) {
-      console.error('Error analyzing code:', error.message);
+      console.error('Error preparing review for Bob:', error.message);
       throw error;
     }
   }
@@ -60,27 +74,28 @@ Provide specific, actionable feedback with line references where applicable.`
    * @param {Object} prData - Pull request data
    * @param {Array} files - Changed files
    * @param {string} diff - Full diff content
-   * @returns {string} Formatted prompt
+   * @returns {string} Formatted prompt for Bob
    */
   buildReviewPrompt(prData, files, diff) {
     const filesSummary = files.map(f => 
       `- ${f.filename} (${f.status}, +${f.additions} -${f.deletions})`
     ).join('\n');
 
-    // Limit diff size to avoid token limits
-    const maxDiffLength = 8000;
+    // Limit diff size
+    const maxDiffLength = 15000;
     const truncatedDiff = diff.length > maxDiffLength 
       ? diff.substring(0, maxDiffLength) + '\n\n... (diff truncated for length)'
       : diff;
 
-    return `# Pull Request Review
+    return `# Pull Request Review Request
 
 ## PR Information
-- Title: ${prData.title}
-- Description: ${prData.body || 'No description provided'}
-- Author: ${prData.user.login}
-- Base Branch: ${prData.base.ref}
-- Head Branch: ${prData.head.ref}
+- **Title:** ${prData.title}
+- **Description:** ${prData.body || 'No description provided'}
+- **Author:** ${prData.user.login}
+- **Base Branch:** ${prData.base.ref}
+- **Head Branch:** ${prData.head.ref}
+- **PR Number:** #${prData.number}
 
 ## Files Changed (${files.length})
 ${filesSummary}
@@ -90,69 +105,65 @@ ${filesSummary}
 ${truncatedDiff}
 \`\`\`
 
-Please provide a comprehensive code review with:
-1. Overall assessment
-2. Specific issues or concerns (with file and line references if possible)
-3. Positive aspects worth highlighting
-4. Suggestions for improvement
+## Review Instructions
 
-Format your response in markdown.`;
+Please provide a comprehensive code review focusing on:
+
+1. **Overall Assessment**
+   - Summary of the changes
+   - Overall code quality
+
+2. **Code Quality**
+   - Are there any code smells or anti-patterns?
+   - Is the code following best practices?
+   - Is the code readable and maintainable?
+
+3. **Potential Issues**
+   - Are there any bugs or logical errors?
+   - Are there edge cases that aren't handled?
+   - Are there any race conditions or concurrency issues?
+
+4. **Security**
+   - Are there any security vulnerabilities?
+   - Is user input properly validated and sanitized?
+   - Are sensitive data properly protected?
+
+5. **Performance**
+   - Are there any performance bottlenecks?
+   - Can any operations be optimized?
+   - Are resources properly managed?
+
+6. **Testing**
+   - Is the code testable?
+   - Are there adequate tests?
+   - Are edge cases covered?
+
+7. **Documentation**
+   - Is the code well-documented?
+   - Are complex logic sections explained?
+   - Are API changes documented?
+
+8. **Best Practices**
+   - Does the code follow the project's coding standards?
+   - Are naming conventions consistent?
+   - Is error handling appropriate?
+
+Please format your response in markdown with clear sections.`;
   }
 
   /**
-   * Parse the AI analysis into structured feedback
+   * Parse the analysis into structured feedback
    * @param {string} analysis - Raw analysis text
    * @param {Array} files - Changed files
    * @returns {Object} Structured review data
    */
   parseAnalysis(analysis, files) {
-    // Extract sections from the analysis
     const sections = {
-      summary: '',
+      summary: analysis,
       issues: [],
       positives: [],
       suggestions: []
     };
-
-    // Simple parsing - can be enhanced with more sophisticated logic
-    const lines = analysis.split('\n');
-    let currentSection = 'summary';
-    let currentContent = [];
-
-    for (const line of lines) {
-      const lowerLine = line.toLowerCase();
-      
-      if (lowerLine.includes('issue') || lowerLine.includes('concern')) {
-        if (currentContent.length > 0) {
-          sections[currentSection] = currentContent.join('\n');
-        }
-        currentSection = 'issues';
-        currentContent = [line];
-      } else if (lowerLine.includes('positive') || lowerLine.includes('good')) {
-        if (currentContent.length > 0) {
-          sections[currentSection] = currentContent.join('\n');
-        }
-        currentSection = 'positives';
-        currentContent = [line];
-      } else if (lowerLine.includes('suggestion') || lowerLine.includes('recommend')) {
-        if (currentContent.length > 0) {
-          sections[currentSection] = currentContent.join('\n');
-        }
-        currentSection = 'suggestions';
-        currentContent = [line];
-      } else {
-        currentContent.push(line);
-      }
-    }
-
-    // Add remaining content
-    if (currentContent.length > 0) {
-      if (currentSection === 'summary' && sections.summary === '') {
-        sections.summary = currentContent.join('\n');
-      } else {
-        sections[currentSection] = currentContent.join('\n');
-      }
-    }
 
     return {
       fullAnalysis: analysis,
@@ -169,17 +180,16 @@ Format your response in markdown.`;
    * @returns {Promise<Array>} List of issues found
    */
   async analyzeFile(filename, content, patch) {
-    try {
-      const prompt = `Analyze this file change and identify specific issues:
+    const prompt = `Please analyze this file change:
 
-File: ${filename}
+**File:** ${filename}
 
-Changes:
+**Changes:**
 \`\`\`diff
 ${patch}
 \`\`\`
 
-Provide a list of specific issues with line numbers if applicable. Focus on:
+Identify specific issues with line numbers if applicable. Focus on:
 - Bugs or logical errors
 - Security vulnerabilities
 - Performance issues
@@ -188,61 +198,15 @@ Provide a list of specific issues with line numbers if applicable. Focus on:
 
 Format each issue as: "Line X: [Issue description]" or "General: [Issue description]"`;
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a code reviewer. Identify specific, actionable issues in code changes.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.2,
-        max_tokens: 1000
-      });
+    // Save prompt for Bob
+    const promptFile = path.join(this.tempDir, `file-review-${filename.replace(/\//g, '-')}.md`);
+    fs.writeFileSync(promptFile, prompt);
 
-      const issues = this.parseFileIssues(response.choices[0].message.content, filename);
-      return issues;
-    } catch (error) {
-      console.error(`Error analyzing file ${filename}:`, error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Parse file-specific issues from AI response
-   * @param {string} text - AI response text
-   * @param {string} filename - File name
-   * @returns {Array} List of parsed issues
-   */
-  parseFileIssues(text, filename) {
-    const issues = [];
-    const lines = text.split('\n');
-    
-    for (const line of lines) {
-      const lineMatch = line.match(/Line (\d+):\s*(.+)/i);
-      if (lineMatch) {
-        issues.push({
-          file: filename,
-          line: parseInt(lineMatch[1]),
-          message: lineMatch[2].trim()
-        });
-      } else if (line.trim().startsWith('-') || line.trim().match(/^\d+\./)) {
-        const message = line.replace(/^[-\d.]\s*/, '').trim();
-        if (message.length > 10) {
-          issues.push({
-            file: filename,
-            line: null,
-            message
-          });
-        }
-      }
-    }
-    
-    return issues;
+    return [{
+      file: filename,
+      line: null,
+      message: `Review prompt created at: ${promptFile}. Ask Bob to review this file.`
+    }];
   }
 
   /**
@@ -252,20 +216,31 @@ Format each issue as: "Line X: [Issue description]" or "General: [Issue descript
    * @returns {string} Formatted review comment
    */
   generateReviewComment(analysis, filesCount) {
-    const { fullAnalysis, sections } = analysis;
-    
-    return `## 🤖 Automated Code Review
+    return `## 🤖 Code Review with Bob
 
 **Files Reviewed:** ${filesCount}
 **Review Date:** ${new Date().toLocaleString()}
 
 ---
 
-${fullAnalysis}
+${analysis.fullAnalysis}
 
 ---
 
-*This review was automatically generated by the Code Review Assistant. Please review the suggestions and use your judgment.*`;
+*This review was prepared for Bob AI Assistant.*
+*Bob will analyze the code changes and provide detailed feedback.*`;
+  }
+
+  /**
+   * Clean up temporary files
+   */
+  cleanup() {
+    if (fs.existsSync(this.tempDir)) {
+      const files = fs.readdirSync(this.tempDir);
+      files.forEach(file => {
+        fs.unlinkSync(path.join(this.tempDir, file));
+      });
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "code-review-assistant",
   "version": "1.0.0",
-  "description": "Automated code review assistant for GitHub pull requests",
+  "description": "Automated code review assistant for GitHub pull requests using Bob AI",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -15,15 +15,14 @@
     "code-review",
     "github",
     "automation",
-    "pull-request"
+    "pull-request",
+    "bob",
+    "ai-assistant"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@octokit/rest": "^20.0.2",
     "dotenv": "^16.3.1"
-  },
-  "optionalDependencies": {
-    "openai": "^4.20.1"
   }
 }
