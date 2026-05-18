@@ -1,0 +1,109 @@
+name: Automated Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          # Get the diff between base and head
+          git diff origin/${{ github.event.pull_request.base.ref }}...${{ github.event.pull_request.head.sha }} > pr-diff.txt
+          
+          # Get file list
+          git diff --name-status origin/${{ github.event.pull_request.base.ref }}...${{ github.event.pull_request.head.sha }} > files-changed.txt
+          
+          echo "FILES_CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...${{ github.event.pull_request.head.sha }} | wc -l)" >> $GITHUB_OUTPUT
+
+      - name: Run automated code review
+        id: review
+        run: |
+          # Run the automated reviewer
+          node src/automated-reviewer.js pr-diff.txt review-output.md
+          
+          # Check if review was generated
+          if [ -f review-output.md ]; then
+            echo "REVIEW_GENERATED=true" >> $GITHUB_OUTPUT
+          else
+            echo "REVIEW_GENERATED=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post review comment
+        if: steps.review.outputs.REVIEW_GENERATED == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review-output.md', 'utf8');
+            
+            // Add PR context to review
+            const fullReview = `${review}\n\n---\n\n**PR Details:**
+            - **Number:** #${{ github.event.pull_request.number }}
+            - **Author:** @${{ github.event.pull_request.user.login }}
+            - **Files Changed:** ${{ steps.diff.outputs.FILES_CHANGED }}
+            - **Base:** \`${{ github.event.pull_request.base.ref }}\`
+            - **Head:** \`${{ github.event.pull_request.head.ref }}\`
+            
+            💡 **Tip:** For more detailed review, run: \`npm run review ${{ github.event.pull_request.number }}\``;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: fullReview
+            });
+
+      - name: Add review label
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: ['automated-review']
+              });
+            } catch (error) {
+              console.log('Label might not exist, skipping...');
+            }
+
+      - name: Check for critical issues
+        if: steps.review.outputs.REVIEW_GENERATED == 'true'
+        run: |
+          # Check if there are critical issues in the review
+          if grep -q "🚨 Critical Issues" review-output.md; then
+            echo "::warning::Critical issues found in code review. Please address them before merging."
+          fi
+
+# Made with Bob

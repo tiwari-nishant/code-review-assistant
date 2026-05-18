@@ -1,0 +1,11 @@
+node_modules/
+.env
+config.js
+*.log
+.DS_Store
+dist/
+coverage/
+.vscode/
+.bob-review-temp/
+
+# Made with Bob
