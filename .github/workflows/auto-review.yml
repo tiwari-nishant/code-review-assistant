@@ -32,69 +32,61 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Get PR diff
-        id: diff
+      - name: Install Bob Shell
         run: |
-          git diff origin/${{ github.event.pull_request.base.ref }}...${{ github.event.pull_request.head.sha }} > pr-diff.txt
-          git diff --name-status origin/${{ github.event.pull_request.base.ref }}...${{ github.event.pull_request.head.sha }} > files-changed.txt
-          echo "FILES_CHANGED=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...${{ github.event.pull_request.head.sha }} | wc -l)" >> $GITHUB_OUTPUT
-
-      - name: Run pattern-based code review
-        id: pattern_review
-        run: |
-          node src/automated-reviewer.js pr-diff.txt review-pattern.md
-          if [ -f review-pattern.md ]; then
-            echo "PATTERN_REVIEW_GENERATED=true" >> $GITHUB_OUTPUT
+          echo "Installing Bob Shell..."
+          
+          # Install Bob Shell following IBM documentation
+          # https://internal.bob.ibm.com/docs/shell/getting-started/install-and-setup
+          
+          # Download and install Bob Shell
+          curl -fsSL https://internal.bob.ibm.com/install.sh | bash
+          
+          # Add Bob to PATH
+          export PATH="$HOME/.bob/bin:$PATH"
+          
+          # Verify installation
+          if command -v bob &> /dev/null; then
+            echo "✅ Bob Shell installed successfully"
+            bob --version
           else
-            echo "PATTERN_REVIEW_GENERATED=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Bob Shell installation failed"
+            echo "Will use pattern-based review as fallback"
           fi
 
-      - name: Try Bob CLI review
-        id: bob_review
-        continue-on-error: true
+      - name: Configure Bob Shell
+        env:
+          BOB_API_KEY: ${{ secrets.BOB_API_KEY }}
+        run: |
+          # Configure Bob Shell if API key is available
+          if [ -n "$BOB_API_KEY" ]; then
+            echo "Configuring Bob Shell..."
+            export PATH="$HOME/.bob/bin:$PATH"
+            bob config set api-key "$BOB_API_KEY"
+          else
+            echo "⚠️  BOB_API_KEY not set in secrets"
+            echo "Bob Shell may have limited functionality"
+          fi
+
+      - name: Run automated code review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
         run: |
-          # Try to use Bob CLI if available
-          if command -v bob &> /dev/null; then
-            echo "BOB_AVAILABLE=true" >> $GITHUB_OUTPUT
-            npm run review ${{ github.event.pull_request.number }} --dry-run > review-bob.md 2>&1 || true
-            if [ -f review-bob.md ]; then
-              echo "BOB_REVIEW_GENERATED=true" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "BOB_AVAILABLE=false" >> $GITHUB_OUTPUT
-            echo "Bob CLI not available in GitHub Actions environment"
-          fi
-
-      - name: Post pattern-based review
-        if: steps.pattern_review.outputs.PATTERN_REVIEW_GENERATED == 'true'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const review = fs.readFileSync('review-pattern.md', 'utf8');
-            
-            const fullReview = `${review}\n\n---\n\n**PR Details:**
-            - **Number:** #${{ github.event.pull_request.number }}
-            - **Author:** @${{ github.event.pull_request.user.login }}
-            - **Files Changed:** ${{ steps.diff.outputs.FILES_CHANGED }}
-            - **Base:** \`${{ github.event.pull_request.base.ref }}\`
-            - **Head:** \`${{ github.event.pull_request.head.ref }}\`
-            
-            💡 **For AI-powered review:** Run \`npm run review ${{ github.event.pull_request.number }}\` locally with Bob CLI`;
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: fullReview
-            });
+          # Add Bob to PATH
+          export PATH="$HOME/.bob/bin:$PATH"
+          
+          # Run the Bob CLI reviewer
+          # This will:
+          # 1. Fetch PR data
+          # 2. Create review prompt
+          # 3. Try Bob CLI (or use fallback)
+          # 4. Post review to GitHub
+          npm run review ${{ github.event.pull_request.number }}
 
       - name: Add review label
+        if: always()
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -109,12 +101,5 @@ jobs:
             } catch (error) {
               console.log('Label might not exist, skipping...');
             }
-
-      - name: Check for critical issues
-        if: steps.pattern_review.outputs.PATTERN_REVIEW_GENERATED == 'true'
-        run: |
-          if grep -q "🚨 Critical Issues" review-pattern.md; then
-            echo "::warning::Critical issues found in code review. Please address them before merging."
-          fi
 
 # Made with Bob

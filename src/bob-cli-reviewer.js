@@ -63,7 +63,7 @@ class BobCLIReviewer {
 
       // Use Bob CLI to generate review
       console.log('\n🤖 Generating review with Bob CLI...');
-      const review = await this.generateReviewWithBob(promptFile);
+      const review = await this.generateReviewWithBob(promptFile, files, diff);
 
       if (!review) {
         console.log('⚠️  Bob CLI did not generate a review');
@@ -105,17 +105,19 @@ class BobCLIReviewer {
   /**
    * Generate review using Bob CLI
    * @param {string} promptFile - Path to prompt file
+   * @param {Array} files - Changed files
+   * @param {string} diff - Diff content
    * @returns {Promise<string>} Generated review
    */
-  async generateReviewWithBob(promptFile) {
+  async generateReviewWithBob(promptFile, files, diff) {
     try {
       // Check if Bob CLI is available
       try {
         execSync('which bob', { stdio: 'pipe' });
       } catch (error) {
         console.log('⚠️  Bob CLI not found in PATH');
-        console.log('   Using fallback: prompt file created for manual review');
-        return this.generateFallbackReview(promptFile);
+        console.log('   Using automated pattern-based review as fallback');
+        return this.generateAutomatedReview(files, diff);
       }
 
       // Execute Bob CLI with the prompt
@@ -131,12 +133,12 @@ class BobCLIReviewer {
 
         return this.formatBobOutput(output);
       } catch (error) {
-        console.log('⚠️  Bob CLI execution failed, using fallback');
-        return this.generateFallbackReview(promptFile);
+        console.log('⚠️  Bob CLI execution failed, using automated review fallback');
+        return this.generateAutomatedReview(files, diff);
       }
     } catch (error) {
       console.error('Error generating review with Bob:', error.message);
-      return this.generateFallbackReview(promptFile);
+      return this.generateAutomatedReview(files, diff);
     }
   }
 
@@ -157,46 +159,46 @@ ${output}
   }
 
   /**
-   * Generate fallback review when Bob CLI is not available
-   * @param {string} promptFile - Path to prompt file
-   * @returns {string} Fallback review
+   * Generate automated pattern-based review as fallback
+   * @param {Array} files - Changed files
+   * @param {string} diff - Diff content
+   * @returns {string} Automated review
    */
-  generateFallbackReview(promptFile) {
-    return `## 🤖 Code Review Ready
-
-A comprehensive review prompt has been prepared for this PR.
-
-**Review Prompt:** \`${promptFile}\`
-
-**To complete the review:**
-
-1. **Using Bob in your IDE:**
-   \`\`\`
-   "Please review the file ${promptFile} and provide a comprehensive code review"
-   \`\`\`
-
-2. **Using Bob CLI (if installed):**
-   \`\`\`bash
-   bob review "${promptFile}"
-   \`\`\`
-
-3. **Manual Review:**
-   - Open the prompt file
-   - Review the code changes
-   - Provide feedback
-
-**What will be reviewed:**
-- Code quality and best practices
-- Potential bugs or issues
-- Security vulnerabilities
-- Performance concerns
-- Code maintainability
-- Documentation quality
+  async generateAutomatedReview(files, diff) {
+    try {
+      // Use the automated reviewer
+      const { default: AutomatedReviewer } = await import('./automated-reviewer.js');
+      const reviewer = new AutomatedReviewer();
+      const result = reviewer.analyzeDiff(diff, files);
+      
+      return `${result.review}
 
 ---
 
-*Automated review preparation completed. Waiting for Bob analysis.*
-*Review Date: ${new Date().toLocaleString()}*`;
+**Note:** Bob CLI was not available, so this review uses pattern-based analysis.
+For AI-powered review, install Bob CLI or use Bob in your IDE.`;
+    } catch (error) {
+      console.error('Error generating automated review:', error.message);
+      return `## 🤖 Automated Code Review
+
+**Files Analyzed:** ${files.length}
+**Review Date:** ${new Date().toLocaleString()}
+
+Bob CLI is not available in this environment.
+
+**Files Changed:**
+${files.map(f => `- ${f.filename} (+${f.additions} -${f.deletions})`).join('\n')}
+
+**To get AI-powered review:**
+1. Install Bob CLI locally
+2. Run: \`npm run review <pr-number>\`
+3. Or use Bob in your IDE
+
+---
+
+*Pattern-based automated review system ready but encountered an error.*
+*Manual review recommended for this PR.*`;
+    }
   }
 
   /**
