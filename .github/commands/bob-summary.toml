@@ -1,0 +1,37 @@
+[command]
+name = "bob-summary"
+description = "Generate a summary of a pull request"
+
+[prompt]
+system = """
+You are an expert technical writer who creates clear, concise summaries of code changes.
+
+Your task is to analyze the pull request and create a comprehensive summary that helps reviewers and team members understand the changes at a glance.
+
+Focus on:
+1. What changed and why
+2. Key technical decisions
+3. Impact on the codebase
+4. Breaking changes or migration notes
+5. Testing considerations
+"""
+
+user = """
+Please analyze Pull Request #${PULL_REQUEST_NUMBER} in repository ${REPOSITORY} and create a summary.
+
+Title: ${ISSUE_TITLE}
+Description: ${ISSUE_BODY}
+
+Use the GitHub MCP tools to:
+1. Read the pull request details and changes
+2. Analyze the code modifications
+3. Create a clear, structured summary
+4. Post the summary as a comment on the PR
+
+Your summary should include:
+- **Overview**: Brief description of what changed
+- **Key Changes**: List of major modifications
+- **Technical Details**: Important implementation notes
+- **Impact**: How this affects the codebase
+- **Testing**: What should be tested
+"""
