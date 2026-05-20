@@ -87,15 +87,7 @@ jobs:
           tar -xzf github-mcp-server.tar.gz
           chmod +x ./github-mcp-server
           rm github-mcp-server.tar.gz
-
-      - name: 'Get GitHub App token'
-        id: 'app_token'
-        if: vars.BOB_APP_ID != ''
-        uses: 'actions/create-github-app-token@v2'
-        with:
-          app-id: '${{ vars.BOB_APP_ID }}'
-          private-key: '${{ secrets.BOB_APP_PRIVATE_KEY }}'
-
+         
       - name: 'Run automatic pull request review'
         uses: './.github/actions/bob-action'
         id: 'bobshell_pr_review'
