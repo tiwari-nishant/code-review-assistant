@@ -31,10 +31,12 @@ inputs:
     description: 'Hide intermediary output'
     required: false
     default: 'false'
+
 outputs:
   summary:
     description: 'Bob Shell output summary'
     value: ${{ steps.run_bob.outputs.summary }}
+
 runs:
   using: 'composite'
   steps:
@@ -42,13 +44,16 @@ runs:
       shell: bash
       run: |
         echo "Installing Bob Shell version ${{ inputs.bobshell_version }}..."
+        
         if [ "${{ inputs.bobshell_version }}" = "latest" ]; then
           curl -fsSL https://bob.ibm.com/install.sh | bash
         else
           curl -fsSL https://bob.ibm.com/install.sh | bash -s -- --version ${{ inputs.bobshell_version }}
         fi
+        
         export PATH="$HOME/.bob/bin:$PATH"
         echo "$HOME/.bob/bin" >> $GITHUB_PATH
+        
         bob --version
 
     - name: 'Configure Bob Shell'
@@ -58,6 +63,7 @@ runs:
       run: |
         echo "Configuring Bob Shell..."
         bob config set api-key "$BOBSHELL_API_KEY"
+        
         if [ "${{ inputs.bobshell_debug }}" = "true" ]; then
           bob config set debug true
         fi
@@ -66,9 +72,11 @@ runs:
       shell: bash
       run: |
         echo "Setting up Bob configuration..."
+        
         if [ -n "${{ inputs.settings }}" ] && [ "${{ inputs.settings }}" != "{}" ]; then
           echo '${{ inputs.settings }}' > .bob-settings.json
         fi
+        
         if [ -n "${{ inputs.mcp }}" ] && [ "${{ inputs.mcp }}" != "{}" ]; then
           echo '${{ inputs.mcp }}' > .bob-mcp.json
         fi
@@ -79,4 +87,35 @@ runs:
       env:
         MAX_COINS: ${{ inputs.max_coins }}
         PROMPT: ${{ inputs.prompt }}
-        HIDE_OUTPUT: ${{ inputs.hide_intermedi
+        HIDE_OUTPUT: ${{ inputs.hide_intermediary_output }}
+      run: |
+        echo "Running Bob Shell with prompt: $PROMPT"
+        
+        BOB_CMD="bob"
+        
+        if [ -f ".bob-settings.json" ]; then
+          BOB_CMD="$BOB_CMD --settings .bob-settings.json"
+        fi
+        
+        if [ -f ".bob-mcp.json" ]; then
+          BOB_CMD="$BOB_CMD --mcp .bob-mcp.json"
+        fi
+        
+        if [ "$MAX_COINS" != "" ]; then
+          BOB_CMD="$BOB_CMD --max-coins $MAX_COINS"
+        fi
+        
+        OUTPUT=$($BOB_CMD "$PROMPT" 2>&1)
+        EXIT_CODE=$?
+        
+        echo "$OUTPUT" > bob-output.txt
+        
+        echo "summary<<EOF" >> $GITHUB_OUTPUT
+        echo "$OUTPUT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        if [ -f "session-summary.json" ]; then
+          echo "Session summary created"
+        fi
+        
+        exit $EXIT_CODE
