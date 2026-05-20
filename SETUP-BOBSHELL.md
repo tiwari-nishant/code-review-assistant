@@ -169,13 +169,29 @@ on:
 
 **Error**: `bash: line 1: syntax error near unexpected token 'newline'`
 
-**Cause**: The Bob Shell installation URL returned HTML instead of the installation script.
+**Cause**: The Bob Shell installation URL returned HTML (404 page) instead of the installation script.
 
-**Solutions:**
-1. Verify you have access to IBM internal network
-2. Check if `https://bob.ibm.com/install.sh` is accessible
-3. Consider using self-hosted runners within IBM network
-4. Update the installation URL in `.github/actions/bob-action/action.yml`
+**Current Solution**: The action now uses npm to install Bob Shell: `npm install -g @ibm/bob-shell`
+
+**Alternative Solutions if npm installation fails:**
+
+1. **Use IBM Internal Installation Script** (requires IBM network):
+   ```bash
+   curl -fsSL https://internal.bob.ibm.com/install.sh | bash
+   ```
+
+2. **Use Self-Hosted Runners** within IBM network
+
+3. **Manual Installation** - Download Bob Shell binary and add to PATH:
+   ```yaml
+   - name: 'Install Bob Shell'
+     run: |
+       wget https://your-internal-url/bob-shell-linux-x64
+       chmod +x bob-shell-linux-x64
+       sudo mv bob-shell-linux-x64 /usr/local/bin/bob
+   ```
+
+4. **Contact IBM Bob Shell Support** for the correct installation method for your environment
 
 ### No Review Comments Posted
 

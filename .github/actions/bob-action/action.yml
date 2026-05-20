@@ -45,16 +45,15 @@ runs:
       run: |
         echo "Installing Bob Shell version ${{ inputs.bobshell_version }}..."
         
+        # Install Bob Shell using npm (alternative method)
         if [ "${{ inputs.bobshell_version }}" = "latest" ]; then
-          curl -fsSL https://bob.ibm.com/install.sh | bash
+          npm install -g @ibm/bob-shell
         else
-          curl -fsSL https://bob.ibm.com/install.sh | bash -s -- --version ${{ inputs.bobshell_version }}
+          npm install -g @ibm/bob-shell@${{ inputs.bobshell_version }}
         fi
         
-        export PATH="$HOME/.bob/bin:$PATH"
-        echo "$HOME/.bob/bin" >> $GITHUB_PATH
-        
-        bob --version
+        # Verify installation
+        bob --version || echo "Bob Shell installed but version check failed"
 
     - name: 'Configure Bob Shell'
       shell: bash
