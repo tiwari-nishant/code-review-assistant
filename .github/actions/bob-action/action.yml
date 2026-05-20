@@ -239,7 +239,7 @@ runs:
         FAILED=false
 
         # Run Bob Shell: use stdin for prompt when from file (avoids ARG_MAX); otherwise positional prompt
-        BOB_OPTS="--yolo --max-coins ${MAX_COINS:-3} --chat-mode ${CHAT_MODE:-advanced} ${HIDE_INTERMEDIARY_OUTPUT:+--hide-intermediary-output}"
+        BOB_OPTS="--accept-license --yolo --max-coins ${MAX_COINS:-3} --chat-mode ${CHAT_MODE:-advanced} ${HIDE_INTERMEDIARY_OUTPUT:+--hide-intermediary-output}"
         if [[ "${USE_PROMPT_STDIN}" = true ]]; then
           if [[ "${DEBUG}" = true ]]; then
             echo "::warning::Bob Shell debug logging is enabled. This will stream responses, which could reveal sensitive information if processed with untrusted inputs."
