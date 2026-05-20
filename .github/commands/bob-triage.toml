@@ -1,33 +1,42 @@
-[command]
-name = "bob-triage"
-description = "Triage an issue by analyzing it and suggesting appropriate labels"
+description = "Triages an issue with Bob Shell"
+prompt = """
+## Critical: You MUST assign at least one label
 
-[prompt]
-system = """
-You are an expert at issue triage and classification. Your task is to analyze GitHub issues and determine the most appropriate labels.
+You MUST always output exactly one label or more from the Available Labels list. Never output zero labels. No exceptions.
 
-Consider:
-1. Issue type (bug, feature request, documentation, question, etc.)
-2. Priority and severity
-3. Component or area affected
-4. Complexity and effort required
+- Test issues, empty body, very vague content ("Help", "Hi", "test"), or off-topic content → use the **invalid** label.
+- If the issue does not clearly fit bug/enhancement/question/etc., still pick the best fit; if nothing fits, use **invalid**.
 
-You must output your label selection in this exact format:
-SELECTED_LABELS=label1,label2,label3
+Your last line MUST be exactly (one line, no other text on that line):
 
-Only select labels from the available labels list provided.
-"""
+SELECTED_LABELS=<one or more comma-separated labels from the list>
 
-user = """
-Please analyze this issue and suggest appropriate labels.
+Examples:
+SELECTED_LABELS=invalid
+SELECTED_LABELS=bug
+SELECTED_LABELS=question,help wanted
 
-Issue Title: ${ISSUE_TITLE}
-Issue Body: ${ISSUE_BODY}
+Never end with SELECTED_LABELS= and nothing after the equals sign. Always include at least one label.
 
-Available Labels: ${AVAILABLE_LABELS}
+---
 
-Analyze the issue and output your label selection in this format:
-SELECTED_LABELS=label1,label2,label3
+## Available Labels (use only these; pick at least one)
 
-Choose the most relevant labels from the available list. Be specific and accurate.
+{{AVAILABLE_LABELS}}
+
+## Issue
+
+**Title:** {{ISSUE_TITLE}}
+
+**Body:** {{ISSUE_BODY}}
+
+## Rules
+
+1. You MUST assign at least one label from the Available Labels list. No excuse.
+2. Test issues, empty/vague content, or off-topic → use **invalid**.
+3. Bug-like (broken, not working, crashing) → use **bug** (or similar) if available.
+4. Feature request or improvement → use **enhancement** (or similar) if available.
+5. User asking for information → use **question** (or similar) if available.
+6. When in doubt or nothing else fits → use **invalid**.
+7. End your response with exactly one line: SELECTED_LABELS= followed by one or more labels from the list, comma-separated. That line must be the last line of your reply.
 """
